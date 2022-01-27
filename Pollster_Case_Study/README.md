@@ -1,8 +1,4 @@
-This is the description file for my pollster case study.
+The purpose of this business case study was to the use the public data from from FiveThirtyEight on pollster rating to investigate what characteristics successfull pollsters share and what recommendations I would make to an up-and-coming pollster on what steps to take to have the best likelehood for success.
 
-This is what I did:
-* item 1
-* item 2
-* item 3
+Please see the Full Report.Pdf for the full report and the attached supporting documents.
 
-And my Analysis and my Conclusion
