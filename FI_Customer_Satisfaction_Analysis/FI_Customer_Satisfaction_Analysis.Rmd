@@ -1,0 +1,525 @@
+---
+title: "**An Analysis of Customer Complaints about their Financial Institutions**"
+author: "Samir Chawla"
+date: "February 15 2022"
+output: html_document
+---
+<!-- This report is about customer banking complaints. We will look at the complaints made by customers about their financial institutions and see if we can come up with any insights on how to improve the customer experience.  Recommendations will follow at the end of the report. -->
+<br/>
+
+### **Background Information and Description of the Core Business Problem**
+American consumers have always had a contemptuous relationship with their FI (Financial Institutions) over a variety of issues and those issues have evolved over time. But more than ever, as banking products/services and other debt instruments increase their reach into the lives of Americans in different facets there are a greater number of consumers who are generally dissatisfied with their FI’s and this trend is heading upwards.
+
+A satisfied customer base is necessary for an FI to be successful and to retain and grow their footprint in an increasingly competitive industry but a host of complex issues makes it more difficult for FI’s to connect with their customers and keep them happy. As technology moves towards web3 and a DeFI environment it is imperative that FI's do what is necessary to repair a history of distrust and contempt they have with their customers.
+
+In this report, we will examine what issues FI’s face why the are facing them and what actionable steps can be taken to increase satisfaction rates amongst their customers. For the analysis, we will be using the available public data on consumer complaints to the CFPB (Consumer Financial Protection Bureau) found at https://files.consumerfinance.gov/ccdb/complaints.csv.zip
+
+<br/>
+
+### **Data Exploration and Analysis**
+This is a fairly large dataset so we will analyze the data in R Studio using SQL with the sqldf package.  All steps can be followed and recreated using the original RMD file with the original raw data files rather than this summarized HTML report.  Therefore, for this report we will only be going over the most relevant steps to solve this business case.
+
+<!-- Setup the Knit -->
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<!-- Load the banking complaint dataset -->
+```{r include=FALSE}
+all_complaints <- read.csv(file="~/Raw_data/complaints.csv")
+```
+
+
+<!-- Install and load SQL package -->
+```{r include=FALSE}
+install.packages("sqldf", repos='http://cran.us.r-project.org')
+library(sqldf)
+```
+
+
+Our exploration of the data begins with a high-level view of the data with all the fields in view.  We see each record is a customer complaint about an FI or a credit reporting agency (Equifax, Transunion and Experian). For this case study, we are strictly analyzing only FI’s so we will split the dataset in two separated by if the complaint is about an FI or a credit reporting agency.
+<!-- List top companies with complaints -->
+```{r}
+sqldf("SELECT * FROM all_complaints LIMIT 6")
+```
+
+
+
+<!-- List Top 10 Companies with the Most complaints -->
+```{r}
+sqldf("SELECT Company, COUNT(*) AS total_complaints FROM all_complaints GROUP BY Company ORDER BY total_complaints DESC LIMIT 10")
+```
+
+<!-- Shorten Transunion Intermediate Holdings -->
+```{r include=FALSE}
+all_complaints$Company <- replace(all_complaints$Company, all_complaints$Company=="TRANSUNION INTERMEDIATE HOLDINGS, INC.", "TRANSUNION INC.")
+```
+
+
+
+<!-- HERE IS WHERE WE NOTICE THAT THE TOP 3 INSTITUTIONS WITH COMPLAINTS ARE THE MAIN 3 CREDIT RATING AGENCIES IN US -->
+
+<!-- Store only the bank complaints in a separate dataframe -->
+```{r message=FALSE, include=FALSE}
+fi_complaints <- sqldf("SELECT * FROM all_complaints WHERE company != 'EQUIFAX, INC.' AND company != 'TRANSUNION INC.' AND company != 'Experian Information Solutions Inc.'")
+```
+
+<!-- Store Only Credit Reporting Agencies data in another separate dataset -->
+```{r message=FALSE, include=FALSE}
+ca_complaints <- sqldf("SELECT * FROM all_complaints WHERE company = 'EQUIFAX, INC.' OR company = 'TRANSUNION INC.' OR company = 'Experian Information Solutions Inc.'")
+```
+
+<br/>
+Firstly, let’s explore the credit agency dataset and immediately we see that 62% of all complaints about the credit agencies is them having incorrect information (Issues of Incorrect information on your report and Incorrect information on credit report). This seems like a significant metric so we will record this finding and try to shine some light on it contextually in the rest of the analysis.
+<!-- List the biggest issues of only the Credit Agencies -->
+```{r}
+sqldf("SELECT Issue, count(*) AS Total FROM ca_complaints GROUP BY Issue ORDER BY Total DESC LIMIT 10")
+```
+
+
+<br/>
+When we shift our attention to the FI complaints we see that Attempts to collect on debt not owed is the biggest complaint from customers. In conjunction with this query we will also query the FI Products that receive the most complaints.
+
+<!-- List the biggest issues of only FI's -->
+```{r}
+sqldf("SELECT Issue, count(*) AS Total FROM fi_complaints GROUP BY Issue ORDER BY Total DESC LIMIT 10")
+```
+
+<!-- Credit Agency biggest problem products -->
+```{r include=FALSE}
+sqldf("SELECT Product, count(*) AS Total FROM ca_complaints GROUP BY Product ORDER BY Total DESC")
+```
+
+<!-- Credit Agency public responses and resolutions -->
+```{r include=FALSE}
+sqldf("SELECT `Company.response.to.consumer`, count(*) AS Total FROM ca_complaints GROUP BY `Company.response.to.consumer` ORDER BY Total DESC")
+```
+
+<br/>
+Debt products as well as credit reporting are the biggest complaint getters. The margin by which credit reporting is the number one complaint does speak volume and possibly how this could overlap with complaints from the credit agencies.
+<!-- Products with the most complaints from FI's -->
+```{r}
+sqldf("SELECT Product, COUNT(*) AS Total FROM fi_complaints GROUP BY Product ORDER by Total DESC LIMIT 10")
+```
+
+<!-- Products with the most complaints INCLUDING CREDIT REPORTING AGENCIES -->
+```{r include=FALSE}
+sqldf("SELECT Product, COUNT(*) AS Total FROM all_complaints GROUP BY Product ORDER BY Total DESC")
+```
+
+<!-- Sub Products from FI's with the most complaints and under which Product (ONLY FI's)-->
+```{r eval=FALSE, include=FALSE}
+head(sqldf("SELECT `Sub.product`, Product, COUNT(*) AS Total FROM fi_complaints GROUP BY `Sub.product` ORDER BY Total DESC"))
+```
+
+<!-- Top 4 Banks and their issues -->
+```{r include=FALSE}
+head(sqldf("SELECT Issue, `Consumer.complaint.narrative`, `Company.public.response`, `Timely.Response.` FROM all_complaints WHERE company = 'BANK OF AMERICA, NATIONAL ASSOCIATION' OR company = 'WELLS FARGO & COMPANY' OR company = 'JPMORGAN CHASE & CO.' OR company = 'CITIBANK, N.A.'"))
+```
+
+<!-- Low hanging fruit - Are the banks providing mostly timely responses? -->
+```{r include=FALSE}
+sqldf("SELECT `Timely.response.`, count(*) as total FROM fi_complaints GROUP BY `Timely.response.`")
+```
+
+<!-- Top Responses by banks only regardless of issue (Trying to see how much time is actually the banks fault) -->
+```{r include=FALSE}
+sqldf("SELECT `Company.response.to.consumer`, count(*) AS total FROM fi_complaints GROUP BY `Company.response.to.consumer` ORDER BY total DESC")
+```
+
+<br/>
+The FI’s response to complaints would be of an interest to know because we could see if the FI’s are admitting fault for any of the issues customers are having. The number one response of “Company has responded to the consumer and the CFPB and chooses not to provide a public response “ is very ambiguous and upon clarifying with the CFPB this response is not an admission of culpability so we are unable to infer a conclusion from this. However, it does make sense that if an FI was at fault that this would be the response they would choose.
+
+<!-- Top PUBLIC Responses by banks only regardless of issue (Trying to see how much time is actually the banks fault) -->
+```{r}
+sqldf("SELECT `Company.public.response`, count(*) AS total FROM fi_complaints GROUP BY `Company.public.response` ORDER BY total DESC LIMIT 10")
+```
+
+<!-- View States with most Complaints ALL complaints from ALL institutions -->
+```{r include=FALSE}
+sqldf("SELECT State, COUNT(*) AS Total FROM all_complaints GROUP BY State ORDER BY Total DESC")
+```
+
+<!-- View zip codes with most complaints by by and state from ALL institutions -->
+```{r include=FALSE}
+head(sqldf("SELECT `ZIP.code`, State, COUNT(*) AS Total FROM all_complaints GROUP BY `ZIP.code` ORDER BY Total DESC"))
+```
+
+<!-- I found a free dataset online with free US zip code data: http://www.uszipcodelist.com/download.html I am going to join this with the main banking complain dataset and look for insights based on per capita, etc... -->
+<!-- First I will load the download csv file into an R dataframe -->
+
+```{r include=FALSE}
+zip_code_data <- read.csv(file="~/Raw_data/zip_code_database.csv")
+```
+
+<!-- Delete duplicate state column (will cause problems later)-->
+```{r include=FALSE}
+zip_code_data$state <- NULL
+```
+
+
+<!-- LEFT Join the tables on Zip Code-->
+```{r include=FALSE}
+complaints_by_zip_code <- sqldf("SELECT all_complaints.*, zip_code_data.* FROM all_complaints LEFT JOIN zip_code_data ON all_complaints.`ZIP.code` = zip_code_data.zip")
+```
+
+
+<!-- Calculate complaints per capita by City -->
+```{r include=FALSE}
+head(sqldf("SELECT primary_city, State, SUM(DISTINCT estimated_population) AS Total_population, COUNT(*) AS total_complaints, CAST(COUNT(*) AS FLOAT) / CAST(SUM(DISTINCT estimated_population) AS FLOAT) AS complaints_per_capita FROM complaints_by_zip_code WHERE estimated_population > 0 GROUP BY primary_city, State ORDER BY complaints_per_capita DESC"))
+```
+
+<!-- Didnt find any major correlations with complaints by city -->
+
+
+<br/>
+Customer.complaint.narrative is a manual field that customers can choose to write an explanation of their complaints.  Most FI customers overwhelmingly decide to leave this field blank but perhaps by looking for reappearing key words or phrases we can gain some insight.
+
+
+<!-- Trim the Consumer.complaint.narrative field to 50 characters to make everything more readable. -->
+```{r include=FALSE}
+fi_complaints$Consumer.complaint.narrative <- strtrim(fi_complaints$Consumer.complaint.narrative, 50)
+```
+
+<!-- Query on what the consumer narrative is, are there anything the banks are not addressing with the consumers leaving them unsatisfied? -->
+```{r}
+sqldf("SELECT `Consumer.complaint.narrative`, COUNT(*) AS total FROM fi_complaints GROUP BY `Consumer.complaint.narrative` ORDER BY total DESC LIMIT 10")
+```
+
+
+
+
+<!-- Query on what the consumer narrative is for credit reporting agencies. Is there any overlap with the consumer narratives of the FI's? -->
+```{r include=FALSE}
+ca_complaints$Consumer.complaint.narrative <- strtrim(ca_complaints$Consumer.complaint.narrative, 35)
+
+sqldf("SELECT `Consumer.complaint.narrative`, COUNT(*) AS total FROM ca_complaints GROUP BY `Consumer.complaint.narrative` ORDER BY total DESC LIMIT 10")
+```
+
+<!-- Examine the Wells Fargo Situation -->
+```{r include=FALSE}
+sqldf("SELECT * FROM fi_complaints WHERE company = 'WELLS FARGO & COMPANY' ORDER BY `Product`")
+```
+
+<!-- Customers Disputing results -->
+```{r include=FALSE}
+sqldf("SELECT `Consumer.disputed.`, COUNT(*) AS Total FROM fi_complaints GROUP BY `Consumer.disputed.`")
+```
+
+<!-- What is the highest issue the consumer disputed -->
+```{r include=FALSE}
+sqldf("SELECT Issue, COUNT(*) AS total FROM fi_complaints WHERE `Consumer.disputed.` = 'Yes' GROUP BY Issue ORDER BY total DESC")
+```
+
+
+<!-- What is the highest product the consumer disputed -->
+```{r include=FALSE}
+sqldf("SELECT Product, COUNT(*) AS total FROM fi_complaints WHERE `Consumer.disputed.` = 'Yes' GROUP BY Product ORDER BY total DESC")
+```
+
+<br/>
+Related to Year, next we will query the top issues of the complaints made by issue from the years 2014-2019 and 2020-2022 and see if there has been any significant changes in the issues being complained about.  We will create a new field calculated to the overall percent per time frame of complaints to give us a fair picture of any changes over time. We see that the rate of the issue Incorrect information on your report in 2020-2022 has tripled from 2014-2019.
+<!-- Total Issues by Year -->
+```{r include=FALSE}
+iby <- fi_complaints
+iby$Date.received <- strtrim(iby$Date.received, 4)
+```
+
+
+```{r}
+sqldf("SELECT `Date.received` AS Year, COUNT(*) AS Total_issues FROM iby GROUP BY Year ORDER BY Year DESC")
+```
+
+<!-- Why such a big jump in complaints in 2020 and 2021??? Yes there was COVID but is it somehow related? Query the biggest problem products and issues from 2014-2019 and then for 2020-2021 -->
+
+
+<!-- This Query is for 2014-2019 -->
+
+```{r}
+sqldf("SELECT Issue, ROUND(CAST(COUNT(*) AS FLOAT) / (SELECT CAST(COUNT(*) AS FLOAT) FROM iby WHERE `Date.received` = 2014 OR `Date.received` = 2015 OR `Date.received` = 2016 OR `Date.received` = 2017 OR `Date.received` = 2018 OR `Date.received` = 2019),4) AS percent FROM iby WHERE `Date.received` = 2014 OR `Date.received` = 2015 OR `Date.received` = 2016 OR `Date.received` = 2017 OR `Date.received` = 2018 OR `Date.received` = 2019 GROUP BY Issue ORDER BY percent DESC LIMIT 10")
+```
+
+<!-- This Query is for 2020-2021 -->
+```{r}
+sqldf("SELECT Issue, ROUND(CAST(COUNT(*) AS FLOAT) / (SELECT CAST(COUNT(*) AS FLOAT) FROM iby WHERE `Date.received` = 2022 OR `Date.received` = 2021 OR `Date.received` = 2020),4) AS percent FROM iby WHERE `Date.received` = 2022 OR `Date.received` = 2021 OR `Date.received` = 2020 GROUP BY Issue ORDER BY percent DESC LIMIT 10")
+```
+
+<!-- Setup a new dataframe for the Date.Received in YYYY format for all complaints -->
+```{r include=FALSE}
+iay <- all_complaints
+iay$Date.received <- as.numeric(strtrim(iay$Date.received, 4))
+
+```
+
+<br/>
+
+### **Deep Dive Insights and Conclusions**
+Our exploration and analysis has drawn out a number of interesting findings and conclusions that we will report on in this section.  The conclusions will set the understand and groundwork for the actionable recommendations that are in the next section.
+
+A primary conclusion that can be made is that most complaints to both FI’s or credit agencies are rooted in debt.  Whether it’s a problem with a mortgage or credit card or of the credit agencies chasing people for debt not owed, its from issues like this that are the motivators of customers making complaints in the first place. Providing consumers access to debt capital is a primary business model of FI’s so lets explore what needs to be done more efficiently to keep customers satisfied and their complaints at a minimum.
+
+<!-- Conclusions with Visuals -->
+<!-- ~~~~~~~~~~~~~~~~~~~~~~~~ -->
+<!-- Install and Load all necessary graphing packages-->
+```{r include=FALSE}
+library(ggplot2)
+library(usmap)
+library(plotly)
+library(scales)
+```
+
+<!-- String Tools -->
+```{r include=FALSE}
+library("stringi")
+```
+
+
+<!-- Setup the dataset for Graph1 -->
+```{r include=FALSE}
+graph1 <- sqldf("SELECT Company, count(*) AS total_complaints FROM all_complaints GROUP BY company ORDER BY total_complaints DESC LIMIT 20")
+
+graph1$Company <- stri_trans_totitle(graph1$Company)
+```
+
+
+Debt originates with the FI but often gets sent to collections and the credit agencies.  We see from our analysis that complaints to the 3 main credit agencies in the US make up the majority of all complaints over FI’s by far.
+
+
+<!-- PLOT BAR GRAPH OF ALL COMPLAINTS BY COMPANY -->
+```{r echo=FALSE}
+ggplot(data = graph1, aes(x=reorder(Company, -total_complaints), y=total_complaints))+
+  geom_col(aes(fill = reorder(Company, -total_complaints)))+
+  ggtitle("Total Complaints by Company")+
+  labs(y= "# of Complaints", x = "Company")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  scale_fill_manual(values = c(rep("red", 3), rep("blue", 17))) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1), legend.position = "none")+
+  scale_y_continuous(labels = comma)
+```
+
+
+<br/>
+
+<!-- GEOGRAPHIC COMPARISON GRAPHS -->
+<!-- Load data by state in a new dataframe -->
+```{r include=FALSE}
+stb <-  sqldf("SELECT State AS state, COUNT(*) AS Total FROM fi_complaints GROUP BY State")
+
+stc <-  sqldf("SELECT State AS state, COUNT(*) AS Total FROM ca_complaints GROUP BY State")
+```
+
+<!-- Drop the NULL values -->
+```{r include=FALSE}
+stb <- stb[!(is.na(stb$state) | stb$state==""), ]
+stc <- stc[!(is.na(stc$state) | stc$state==""), ]
+
+```
+
+
+<!-- Read in the statepop dataset, I need this to calculate the issues per capita by state State population data source: https://worldpopulationreview.com/states -->
+```{r include=FALSE}
+sp <- read.csv(file="~/Raw_data/statepop.csv")
+```
+
+
+<!-- Read in the official state abbreviation data frame and Right join it with the state_data and join it with sp-->
+```{r include=FALSE}
+sl <- read.csv(file="~/Raw_data/csvData.csv")
+
+stb <- sqldf("SELECT * FROM sl LEFT JOIN stb ON sl.Code = stb.state")
+stc <- sqldf("SELECT * FROM sl LEFT JOIN stc ON sl.Code = stc.state")
+
+stb <- subset (stb, select = -c(state))
+stc <- subset (stc, select = -c(state))
+
+stb <- sqldf("SELECT * from stb LEFT JOIN sp ON stb.`ï..State` = sp.State")
+stc <- sqldf("SELECT * from stc LEFT JOIN sp ON stc.`ï..State` = sp.State")
+
+
+stb <- sqldf("SELECT Code, Total, Pop, (CAST(Total AS FLOAT) / CAST(Pop AS FLOAT))*1000 as icp FROM stb")
+stc <- sqldf("SELECT Code, Total, Pop, (CAST(Total AS FLOAT) / CAST(Pop AS FLOAT))*1000 as icp FROM stc")
+
+names(stb)[1] <- "state"
+names(stc)[1] <- "state"
+
+```
+
+
+The data also suggests that there is an overlap of the complaints made to the credit agencies and the FI’s.  Remember that all customer debt issues with the credit agencies began as an issue with their FI. Therefore some overlap would be inevitable especially if an issue is not corrected in sufficient time for a customer, which causes them to log a complaint. Therefore, from the rate of complaints per capital plotted on a map of the US by FI's and credit agencies we can see similar color patterns of the states signalling that FI and credit agency complaints are happening at the same magnitude throughout the United States.
+
+
+<!-- This plots the Map-->
+```{r echo=FALSE}
+plot_usmap(data = stb, values = "icp", color = "black") +
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Complaints per 1000 people", label = scales::comma) +
+  labs(title = "FI Complaints per Capita") + 
+  theme(panel.background=element_blank())+
+  theme(plot.title = element_text(face="bold", hjust = 0.5))+
+  theme(legend.position="bottom")
+
+plot_usmap(data = stc, values = "icp", color = "black") +
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Complaints per 1000 people", label = scales::comma) +
+  labs(title = "Credit Agency Complaints per Capita") + 
+  theme(panel.background=element_blank())+
+  theme(plot.title = element_text(face="bold", hjust = 0.5))+
+  theme(legend.position="bottom")
+```
+<br/>
+
+
+<!-- To make the Donut chart of incorrect data of the CA's From the Credit Agency Issues, combine similar results of "Incorrect information on your report" and "Incorrect information on credit report" -->
+```{r include=FALSE}
+tnf <- as.numeric(sqldf("SELECT COUNT(*) FROM ca_complaints WHERE Issue='Incorrect information on your report'")) + as.numeric(sqldf("SELECT COUNT(*) FROM ca_complaints WHERE Issue='Incorrect information on credit report'"))
+
+graph2 <- sqldf("SELECT Issue, count(*) AS Total FROM ca_complaints GROUP BY Issue ORDER BY Total DESC")
+
+graph2 <-subset(graph2, Issue!="Incorrect information on your report" & Issue!="Incorrect information on credit report")
+
+graph2[nrow(graph2) + 1,] <- c("Incorrect Information", tnf)
+graph2$Total <- as.numeric(graph2$Total)
+graph2 <- sqldf("SELECT * FROM graph2 ORDER BY Total DESC LIMIT 10")
+```
+
+<!-- Organize the dataframe in 3 categories (3rd Category is 'Other') -->
+```{r include=FALSE}
+i <- 0
+ot <- 0
+
+for (i in 3: 10)
+{
+  ot <- graph2[i,2] + ot
+}
+
+graph2 <- data.frame (Issue = c(graph2[1,1], graph2[2,1],"Other"),
+                  Total = c(graph2[1,2], graph2[2,2], ot))
+              
+```
+
+<!-- set the font for the graph -->
+```{r include=FALSE}
+t <- list(
+  family = "Arial",
+  size = 12,
+  color = "black")
+```
+
+<br/>
+
+We can see that there is a correlation between the complaints to a credit agency and those to an FI so when we examine deeper into the issues of the credit agencies and we see that the overwhelming reason for complaints according to customers is the credit agency having incorrect information. Even though the issue is with this credit agency, the customer would also understand that the incorrect information comes from their FI and would naturally also hold them accountable.
+
+<br/>
+
+<!-- Plot the Donut chart -->
+```{r echo=FALSE}
+
+plot_ly(data=graph2, values=~Total, labels = ~Issue, marker=list(colors=c("red", "blue", "grey"))) %>% 
+add_pie(hole = 0.5) %>%  
+layout(title = "<b>Customer Issues with Credit Agencies</b>", font=t, showlegend = F,
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+
+```
+
+<!-- Store the YoY of Issues in a new dataframe to plot  -->
+```{r include=FALSE}
+graph3 <- sqldf("SELECT `Date.received` AS Year, COUNT(*) AS Total_issues FROM iby GROUP BY Year ORDER BY Year DESC")
+
+graph3 <-subset(graph3, Year!="2022")
+```
+
+The last most interesting insight we found in our exploration and analysis was the year-over-year increase in complaints especially in 2020-2022.  The Consumer.complaint.narrative is a sparsely populated field but we see a repeated phrase of “Identity Theft” as well as “Fraud” that continuously show up in this field.  If we perform a query of percentage of complaints where these were issues from 2014-2019 and 2020-2021(present) we see a small but significant percentage increase.
+
+<br/>
+<!-- Plot the graph3 -->
+```{r echo=FALSE}
+ggplot(data = graph3, aes(x=Year, y=Total_issues, group=1))+
+  geom_line(color="red")+
+  geom_point()+
+  ggtitle("Total FI Complaints by Year")+
+  labs(y= "# of Complaints", x = "Year")+
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+  theme(axis.text.x = element_text(angle = 45, hjust=1), legend.position = "none")+
+  scale_y_continuous(labels = comma)
+```
+
+
+<!-- How many Identity thefts in the Consumer.complaint.narratives ? -->
+```{r include=FALSE}
+sqldf("SELECT COUNT(*) AS total FROM fi_complaints WHERE `Consumer.complaint.narrative` LIKE '%identity theft%' OR `Consumer.complaint.narrative` LIKE '%Identity theft%' ORDER BY total DESC")
+```
+  
+<!-- Look for an increase in Identity Theft from 2014-2019 to 2020-2022 -->
+<!-- All complaints containing "Identity theft" in the Consumer.complaint.narrative -->
+```{r}
+sqldf("SELECT COUNT(*) AS total FROM iay WHERE `Consumer.complaint.narrative` LIKE '%identity theft%' OR `Consumer.complaint.narrative` LIKE '%Identity theft%' ORDER BY total DESC")
+```
+
+
+<!-- All complaints from 2014-2019 containing "Identity theft" Or "Fraud" in the Consumer.complaint.narrative and displaying it as a percentage of all complaints -->
+```{r}
+sqldf("SELECT COUNT(*) / (SELECT CAST(COUNT(*) AS FLOAT) FROM iay WHERE `Date.received` = 2014 OR `Date.received` = 2015 OR `Date.received` = 2016 OR `Date.received` = 2017 OR `Date.received` = 2018 OR `Date.received` = 2019) AS percent FROM iay WHERE (`Date.received` = 2014 OR `Date.received` = 2015 OR `Date.received` = 2016 OR `Date.received` = 2017 OR `Date.received` = 2018 OR `Date.received` = 2019) AND (`Consumer.complaint.narrative` LIKE '%identity theft%' OR `Consumer.complaint.narrative` LIKE '%Identity theft%' OR `Consumer.complaint.narrative` LIKE '%fraud%')")
+```
+
+<!-- Percentage of Identity theft 2020-2022 -->
+```{r}
+sqldf("SELECT COUNT(*) / (SELECT CAST(COUNT(*) AS FLOAT) FROM iay WHERE `Date.received` = 2020 OR `Date.received` = 2021 OR `Date.received` = 2022) AS percent FROM iay WHERE (`Date.received` = 2020 OR `Date.received` = 2021 OR `Date.received` = 2022) AND (`Consumer.complaint.narrative` LIKE '%identity theft%' OR `Consumer.complaint.narrative` LIKE '%Identity theft%' OR `Consumer.complaint.narrative` LIKE '%fraud%')")
+```
+
+<!-- Read in the data from the FTC Identity Thefy reports vs. the CFRB complaints -->
+```{r include=FALSE}
+graph4 <- read.csv(file="~/Raw_data/FTC_identity_thefts_yoy.csv")
+```
+
+<!-- Change Column name to year and make it a Char variable so it shows up in the chart. -->
+```{r include=FALSE}
+names(graph4)[1] <- 'Year'
+graph4$Year <- as.character(graph4$Year)
+```
+
+<br/>
+
+Now with most of the values blank in the Consumer.complaint.narrative the slight 2.3% increase in reported identity theft does not give us a definitive correlation in increased cases of identity theft so lets take a look at this data from the FTC regarding reported cases of identity theft and compare it with our dataset on complaints from the CFRB. (FTC data link: https://www.iii.org/fact-statistic/facts-statistics-identity-theft-and-cybercrime).
+
+In this visual we can see the reported cases of identity theft from the FTC with the number of complaints per year from 2014-2020 by the CFRB (2021 data from the FTC is unfortunately not yet available). We see a big increase in 2020 of identity theft and complaints to the CFRB. There also seems to be a correlation of these values when looking at all previous years.
+
+
+<!-- Graph the stacked bar chart of graph4 -->
+```{r echo=FALSE}
+ggplot(data=graph4, aes(x = Year)) + 
+    ggtitle("Cases of Identity Theft and CFRB Complaints by Year")+
+    theme(plot.title = element_text(hjust = 0.5, face="bold"))+
+    geom_col(aes(y = Reported.Cases.of.Identity.Theft, fill ="Cases of Identity Theft"))+
+    geom_col(aes(y = Complaints.made.to.CFRB, fill="CFRB Complaints"))+
+    scale_fill_manual(values=c("red",
+                             "blue"))+
+    labs(y= "Amount")+
+    theme(legend.text = element_text(color='black'))+
+    theme(legend.title=element_blank())+
+    scale_y_continuous(labels = comma)
+```
+
+
+
+Often when someone’s identity is stolen the fraudsters use the stolen identity to acquire debt in their victims names unbeknownst to them. Therefore, its possible many victims of identity theft may not even know they are victims and when issues come up it could just be registered as incorrect information on their credit report, which we remember is the single most common issue for credit agencies.
+
+We do not have the sufficient data necessary to infer in one way or another what is the reason for the surge of identity theft in 2020, obviously the Covid-19 pandemic struck during this time but there is no information from the data to be certain why.  However, this would be something interesting to investigate in a separate business case study.
+
+<br/>
+
+### **Recommended Actionable Items**
+
+* **Conduct a customer satisfaction survey to collect more detailed metrics on products and services and conduct the survey by region and demographic group.** This report is based on our analysis of the limited data available therefore there are limits in the insights we provided. For a more accurate and higher level look we suggest a non-bias customer survey where they can answer questions on their experiences and satisfaction in a multiple-choice format. Data obtained through this process could be used to create a predicative AI model to maximize customer satisfaction with the least overhead cost.
+
+
+* **Promptly investigate issues, update records and send those updates to the credit agencies.**  As per customer responses we overwhelmingly see that customers claim that the credit agencies have incorrect or non-updated information.  Many times this could be a method used by customers to evade debt but it also speaks to a larger issue that includes untimely investigations and delayed record keeping and a lag in the sharing of data between FI’s and credit agencies.  FI’s seem to be doing this timely in terms of responding to complaints but not in the rest of the process.
+
+
+* **When the lag in the process is the credit agencies FI’s need to hold them accountable.** We recommend the FI put together a small task force to investigate, correct and sanction credit agencies for not keeping updated and accurate records. As we have seen from our analysis, customers do not distinguish on the origin of their issue and what part of the process is not functioning. They will hold their FI and the credit agency responsible when going through the ordeal of correcting incorrect information regardless on whom the issue is with.  Therefore, in the best interest of the FI it is necessary to enforce accurate records keeping outside their company’s borders.
+
+
+* **Get tough on Identity Theft.**  Pro-actively work with law enforcement to investigate and prosecute cases of identity theft as well as secure all systems that are vulnerable of data breaches. Identity theft has taken off starting in 2020 and is likely to continue until new safeguards and deterrents are in place to stop it. Also start a campaign to educate customers on how to keep their personal data safe and the signs to watch for if their personal information is compromised. Also provide detailed steps to remedy the situation that would reduce losses and wasted resources for all parties involved.
+
+<br/>
