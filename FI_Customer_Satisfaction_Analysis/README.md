@@ -1,4 +1,4 @@
-The purpose of this business case study was to analyze customer complaints made to the CFRB and discover insights on what issues are affecting financial institutions and what they can do to increase customer satisfaction.
+The purpose of this business case study was to analyze customer complaints made to the CFRB(Consumer Financial Protection Bureau) and discover insights on what issues are affecting financial institutions and what they can do to increase customer satisfaction.
 
 The analysis was conducted entirely in R and SQL (using the sqldf package).
 
