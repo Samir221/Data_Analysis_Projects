@@ -324,7 +324,7 @@ sp <- read.csv(file="~/Raw_data/statepop.csv")
 
 <!-- Read in the official state abbreviation data frame and Right join it with the state_data and join it with sp-->
 ```{r include=FALSE}
-sl <- read.csv(file="~/Raw_data/csvData.csv")
+sl <- read.csv(file="~/Raw_data/state_codes.csv")
 
 stb <- sqldf("SELECT * FROM sl LEFT JOIN stb ON sl.Code = stb.state")
 stc <- sqldf("SELECT * FROM sl LEFT JOIN stc ON sl.Code = stc.state")
