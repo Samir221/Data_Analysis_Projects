@@ -2,7 +2,7 @@ The purpose of this business case study was to analyze customer complaints made 
 
 The analysis was conducted entirely in R and SQL (using the sqldf package).
 
-Please see the *FI_Customer_Satisfaction_Analysis.HTML for the published report and the attached supporting documents. For the full details on the data exploration, analysis, comments, notes and references please see the FI_Customer_Satisfaction_Analysis.RMD file.
+Please see the *FI_Customer_Satisfaction_Analysis.HTML for the published report and the attached supporting documents. For the full details on the data exploration, data cleaning, analysis, comments, notes and references please see the FI_Customer_Satisfaction_Analysis.RMD file.
 
 
 
